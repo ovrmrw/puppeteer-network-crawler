@@ -1,6 +1,6 @@
 {
   "name": "puppeteer-network-crawler",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -13,8 +13,14 @@
     "test:w": "jest --watch",
     "prepare": "npm run build"
   },
-  "keywords": [],
+  "keywords": [
+    "puppeteer"
+  ],
   "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ovrmrw/puppeteer-network-crawler"
+  },
   "license": "MIT",
   "files": [
     "dist",
