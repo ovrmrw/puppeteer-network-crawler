@@ -3,7 +3,7 @@ import * as devices from 'puppeteer/DeviceDescriptors';
 import { ReplaySubject } from 'rxjs';
 import { debounceTime, first, timeout } from 'rxjs/operators';
 import { orderBy } from 'lodash';
-import { Result, CrawlerOptions } from './types';
+import { NetworkLog, CrawlerOptions } from './types';
 import { logger } from './helpers';
 
 const deviceModel = {
@@ -14,7 +14,7 @@ const deviceModel = {
 export class NetworkCrawler {
   private readonly o: CrawlerOptions;
   private requestCount = 0;
-  private networkLogs: Result[] = [];
+  private networkLogs: NetworkLog[] = [];
   private finalResponseTime = 0;
   private performanceTiming = {
     navigationStart: 0,
@@ -47,7 +47,54 @@ export class NetworkCrawler {
     };
   }
 
-  async getBrowser(): Promise<puppeteer.Browser> {
+  async run() {
+    try {
+      const browser = await this.getBrowser();
+
+      await this.openPageOnceIfNeeded(browser);
+
+      const page = await browser.newPage();
+      await this.setCDPSession(page);
+      await this.setPageEnvironment(page);
+
+      const awaiter$ = new ReplaySubject<null>(1);
+      this.setNetworkLogListeners(page, awaiter$);
+      await this.wait(1000 * 2);
+      await page.goto(this.o.url);
+      await this.runAdditionalScripts(page);
+
+      if (this.o.preventAutoClose) {
+        await this.wait(1000 * 60);
+      }
+
+      // ネットワーク通信が2秒途切れたら次に進ませる。
+      await awaiter$
+        .pipe(debounceTime(1000 * 2), first(), timeout(1000 * this.o.timeoutSec))
+        .toPromise()
+        .catch(console.error);
+
+      await this.setPerformanceLog(page);
+
+      await page.close();
+      await browser.close();
+
+      const networkLogs = this.getCompleteNetworkLogs();
+      const result = {
+        requestCount: this.requestCount,
+        domContentLoadedEvent:
+          this.performanceTiming.domContentLoadedEventStart - this.performanceTiming.navigationStart,
+        loadEvent: this.performanceTiming.loadEventStart - this.performanceTiming.navigationStart,
+        finalResponse: this.finalResponseTime - this.performanceTiming.navigationStart,
+        networkLogs: networkLogs
+      };
+      console.log(result);
+      return result;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  private async getBrowser(): Promise<puppeteer.Browser> {
     const headless = this.o.headless;
     const appMode = !this.o.headless;
     const devtools = !this.o.headless;
@@ -59,7 +106,7 @@ export class NetworkCrawler {
     return browser;
   }
 
-  async setPageEnvironment(page: puppeteer.Page): Promise<void> {
+  private async setPageEnvironment(page: puppeteer.Page): Promise<void> {
     const device = this.o.device;
     const useRealUserAgent = this.o.useRealUserAgent;
     if (device.toUpperCase() === 'ANDROID') {
@@ -72,7 +119,7 @@ export class NetworkCrawler {
     }
   }
 
-  async openPageOnceIfNeeded(browser: puppeteer.Browser): Promise<void> {
+  private async openPageOnceIfNeeded(browser: puppeteer.Browser): Promise<void> {
     const useCache = this.o.useCache;
     if (useCache) {
       const url = this.o.url;
@@ -84,7 +131,7 @@ export class NetworkCrawler {
     }
   }
 
-  async setCDPSession(page: puppeteer.Page): Promise<void> {
+  private async setCDPSession(page: puppeteer.Page): Promise<void> {
     const downloadUpTo = this.o.network.downloadUpTo;
     const uploadUpTo = this.o.network.uploadUpTo;
     const latency = this.o.network.latency;
@@ -97,17 +144,17 @@ export class NetworkCrawler {
     });
   }
 
-  async wait(timeout: number): Promise<void> {
+  private async wait(timeout: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, timeout)).then(() => void 0);
   }
 
-  async runAdditionalScripts(page: puppeteer.Page): Promise<void> {
+  private async runAdditionalScripts(page: puppeteer.Page): Promise<void> {
     const scripts = this.o.additianlScripts instanceof Array ? this.o.additianlScripts : [this.o.additianlScripts];
     const promises = scripts.filter(script => !!script).map(script => page.addScriptTag({ content: script }));
     return Promise.all(promises).then(() => void 0);
   }
 
-  setNetworkLogListeners(page: puppeteer.Page, awaiter$: ReplaySubject<null>): void {
+  private setNetworkLogListeners(page: puppeteer.Page, awaiter$: ReplaySubject<null>): void {
     const metricsUrlFilter = this.o.metricsUrlFilter;
     const metricsUrlExcludes = this.o.metricsUrlExcludes;
     page.on('request', request => {
@@ -166,7 +213,7 @@ export class NetworkCrawler {
     });
   }
 
-  async setPerformanceLog(page: puppeteer.Page): Promise<void> {
+  private async setPerformanceLog(page: puppeteer.Page): Promise<void> {
     const performanceTiming = JSON.parse(await page.evaluate(() => JSON.stringify(window.performance.timing)));
     logger('performanceTiming:', performanceTiming);
     this.performanceTiming = performanceTiming;
@@ -187,7 +234,7 @@ export class NetworkCrawler {
     });
   }
 
-  getCompleteNetworkLogs(): Result[] {
+  private getCompleteNetworkLogs(): NetworkLog[] {
     const orderdLogs = orderBy(this.networkLogs, 'ts').map((log, i) => {
       log.diffFromStart = log.ts - this.performanceTiming.navigationStart;
       if (/^(response|request_(finished|failed))$/.test(log.network) && i > 0) {
@@ -201,52 +248,5 @@ export class NetworkCrawler {
       return log;
     });
     return orderdLogs;
-  }
-
-  async run() {
-    try {
-      const browser = await this.getBrowser();
-
-      await this.openPageOnceIfNeeded(browser);
-
-      const page = await browser.newPage();
-      await this.setCDPSession(page);
-      await this.setPageEnvironment(page);
-
-      const awaiter$ = new ReplaySubject<null>(1);
-      this.setNetworkLogListeners(page, awaiter$);
-      await this.wait(1000 * 2);
-      await page.goto(this.o.url);
-      await this.runAdditionalScripts(page);
-
-      if (this.o.preventAutoClose) {
-        await this.wait(1000 * 60);
-      }
-
-      // ネットワーク通信が2秒途切れたら次に進ませる。
-      await awaiter$
-        .pipe(debounceTime(1000 * 2), first(), timeout(1000 * this.o.timeoutSec))
-        .toPromise()
-        .catch(console.error);
-
-      await this.setPerformanceLog(page);
-
-      await page.close();
-      await browser.close();
-
-      const networkLogs = this.getCompleteNetworkLogs();
-      const result = {
-        requestCount: this.requestCount,
-        domContentLoadedEvent:
-          this.performanceTiming.domContentLoadedEventStart - this.performanceTiming.navigationStart,
-        loadEvent: this.performanceTiming.loadEventStart - this.performanceTiming.navigationStart,
-        finalResponse: this.finalResponseTime - this.performanceTiming.navigationStart,
-        networkLogs: networkLogs
-      };
-      console.log(result);
-      return result;
-    } catch (err) {
-      throw err;
-    }
   }
 }

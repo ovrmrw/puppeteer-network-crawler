@@ -30,7 +30,7 @@ export interface CrawlerOptions {
   useRealUserAgent: boolean;
 }
 
-export interface Result {
+export interface NetworkLog {
   ts: number;
   network: string;
   type: string;
