@@ -1,0 +1,60 @@
+{
+  "name": "puppeteer-network-crawler",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "tsc": "tsc -p tsconfig.build.json",
+    "build": "npm run clean && npm run tsc",
+    "start": "npm run ts -- examples/opt_toppage.ts",
+    "ts": "ts-node",
+    "test": "jest",
+    "test:w": "jest --watch",
+    "prepare": "npm run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "src",
+    "index.js",
+    "index.d.ts",
+    "package.json",
+    "README.md"
+  ],
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json",
+      "node"
+    ]
+  },
+  "devDependencies": {
+    "@types/jest": "^22.1.1",
+    "@types/lodash": "^4.14.107",
+    "@types/node": "^8.0.33",
+    "@types/puppeteer": "^1.2.1",
+    "jest": "^22.2.1",
+    "nodemon": "^1.14.12",
+    "prettier": "^1.10.2",
+    "ts-jest": "^22.0.3",
+    "ts-node": "^5.0.1",
+    "tslint": "^5.9.1",
+    "tslint-config-prettier": "^1.8.0",
+    "typescript": "^2.8.1"
+  },
+  "dependencies": {
+    "lodash": "^4.17.5",
+    "puppeteer": "^1.3.0",
+    "rxjs": "^6.0.0-beta.4"
+  }
+}
