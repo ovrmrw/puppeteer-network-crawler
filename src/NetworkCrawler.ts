@@ -3,7 +3,7 @@ import * as devices from 'puppeteer/DeviceDescriptors';
 import { ReplaySubject } from 'rxjs';
 import { debounceTime, first, timeout } from 'rxjs/operators';
 import { orderBy } from 'lodash';
-import { NetworkLog, CrawlerOptions } from './types';
+import { NetworkLog, CrawlerOptions, Result } from './types';
 import { logger } from './helpers';
 
 const deviceModel = {
@@ -47,11 +47,12 @@ export class NetworkCrawler {
     };
   }
 
-  async run() {
+  async run(): Promise<Result> {
     try {
+      const pageUrl = this.o.url;
       const browser = await this.getBrowser();
 
-      await this.openPageOnceIfNeeded(browser);
+      await this.openPageOnceIfNeeded(browser, pageUrl);
 
       const page = await browser.newPage();
       await this.setCDPSession(page);
@@ -60,7 +61,7 @@ export class NetworkCrawler {
       const awaiter$ = new ReplaySubject<null>(1);
       this.setNetworkLogListeners(page, awaiter$);
       await this.wait(1000 * 2);
-      await page.goto(this.o.url);
+      await page.goto(pageUrl);
       await this.runAdditionalScripts(page);
 
       if (this.o.preventAutoClose) {
@@ -79,7 +80,11 @@ export class NetworkCrawler {
       await browser.close();
 
       const networkLogs = this.getCompleteNetworkLogs();
-      const result = {
+      const result: Result = {
+        pageUrl: pageUrl,
+        metricsUrlFilter: this.o.metricsUrlFilter,
+        metricsUrlExcludes: this.o.metricsUrlExcludes,
+        networkCondition: this.o.network,
         requestCount: this.requestCount,
         domContentLoadedEvent:
           this.performanceTiming.domContentLoadedEventStart - this.performanceTiming.navigationStart,
@@ -119,13 +124,12 @@ export class NetworkCrawler {
     }
   }
 
-  private async openPageOnceIfNeeded(browser: puppeteer.Browser): Promise<void> {
+  private async openPageOnceIfNeeded(browser: puppeteer.Browser, pageUrl: string): Promise<void> {
     const useCache = this.o.useCache;
     if (useCache) {
-      const url = this.o.url;
       const page = await browser.newPage();
       await this.setPageEnvironment(page);
-      await page.goto(url, { waitUntil: 'networkidle2' });
+      await page.goto(pageUrl, { waitUntil: 'networkidle2' });
       await page.close();
       await new Promise(resolve => setTimeout(resolve, 1000 * 1));
     }
