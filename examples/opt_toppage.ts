@@ -5,7 +5,6 @@ process.env.NODE_ENV = 'debug';
 
 async function main() {
   const crawler = new NetworkCrawler({
-    additianlScripts: ['console.log("hoge");'],
     url: 'http://www.opt.ne.jp/',
     metricsUrlFilter: ['gtm.js?id=GTM-MJSJPP', '.adplan7.com/'],
     metricsUrlExcludes: ['.adplan7.com/cs/'],
