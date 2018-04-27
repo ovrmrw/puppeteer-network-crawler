@@ -12,7 +12,8 @@ async function main() {
       latency: 20,
       downloadUpTo: 4,
       uploadUpTo: 2
-    }
+    },
+    useCache: false
   });
   const result = await crawler.run();
   fs.writeFileSync('./result.json', JSON.stringify(result, null, 2));

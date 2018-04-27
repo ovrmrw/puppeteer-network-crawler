@@ -17,7 +17,7 @@ export interface CrawlerOptions {
   metricsUrlFilter: string[];
   /** 取得対象外にしたい通信のURLの一部を指定する (default: []) */
   metricsUrlExcludes: string[];
-  /** タイムアウト時間 (default: 30) */
+  /** タイムアウト時間(秒) (default: 30) */
   timeoutSec: number;
   /** 本物のユーザーエージェントを使うかどうか (default: false) */
   useRealUserAgent: boolean;

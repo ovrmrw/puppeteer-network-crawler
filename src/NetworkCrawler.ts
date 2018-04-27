@@ -1,3 +1,4 @@
+import { URL } from 'url';
 import * as puppeteer from 'puppeteer';
 import * as devices from 'puppeteer/DeviceDescriptors';
 import { ReplaySubject } from 'rxjs';
@@ -5,7 +6,6 @@ import { debounceTime, first, timeout } from 'rxjs/operators';
 import { orderBy } from 'lodash';
 import { NetworkLog, CrawlerOptions, Result } from './types';
 import { logger } from './helpers';
-import { URL } from 'url';
 
 const deviceModel = {
   iPhone: devices['iPhone 6'],
