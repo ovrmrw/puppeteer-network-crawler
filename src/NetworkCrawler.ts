@@ -5,6 +5,7 @@ import { debounceTime, first, timeout } from 'rxjs/operators';
 import { orderBy } from 'lodash';
 import { NetworkLog, CrawlerOptions, Result } from './types';
 import { logger } from './helpers';
+import { URL } from 'url';
 
 const deviceModel = {
   iPhone: devices['iPhone 6'],
@@ -162,56 +163,74 @@ export class NetworkCrawler {
     const metricsUrlFilter = this.o.metricsUrlFilter;
     const metricsUrlExcludes = this.o.metricsUrlExcludes;
     page.on('request', request => {
-      const url = request.url();
-      if (
-        (metricsUrlFilter.some(filterUrl => url.includes(filterUrl)) &&
-          metricsUrlExcludes.every(exclude => !url.includes(exclude))) ||
-        url === this.o.url
-      ) {
-        logger('request:', request.resourceType(), url);
-        this.networkLogs.push({
-          ts: Date.now(),
-          network: 'request',
-          type: request.resourceType(),
-          url
-        });
+      try {
+        const u = new URL(request.url());
+        const href = u.href;
+        const hostAndPathname = u.host + u.pathname;
+        if (
+          (metricsUrlFilter.some(filterUrl => href.includes(filterUrl)) &&
+            metricsUrlExcludes.every(exclude => !hostAndPathname.includes(exclude))) ||
+          href === this.o.url
+        ) {
+          logger('request:', request.resourceType(), href);
+          this.networkLogs.push({
+            ts: Date.now(),
+            network: 'request',
+            type: request.resourceType(),
+            url: href
+          });
+        }
+      } catch (e) {
+        console.error(e);
       }
       awaiter$.next(null);
       this.requestCount++;
     });
     page.on('response', response => {
-      const url = response.url();
-      const now = Date.now();
-      if (
-        (metricsUrlFilter.some(filterUrl => url.includes(filterUrl)) &&
-          metricsUrlExcludes.every(exclude => !url.includes(exclude))) ||
-        url === this.o.url
-      ) {
-        logger('response:', url);
-        this.networkLogs.push({
-          ts: now,
-          network: 'response',
-          type: '',
-          url: response.url()
-        });
+      try {
+        const u = new URL(response.url());
+        const href = u.href;
+        const hostAndPathname = u.host + u.pathname;
+        const now = Date.now();
+        if (
+          (metricsUrlFilter.some(filterUrl => href.includes(filterUrl)) &&
+            metricsUrlExcludes.every(exclude => !hostAndPathname.includes(exclude))) ||
+          href === this.o.url
+        ) {
+          logger('response:', href);
+          this.networkLogs.push({
+            ts: now,
+            network: 'response',
+            type: '',
+            url: href
+          });
+        }
+        this.finalResponseTime = now;
+      } catch (e) {
+        console.error(e);
       }
       awaiter$.next(null);
-      this.finalResponseTime = now;
     });
     page.on('requestfailed', response => {
-      const url = response.url();
-      if (
-        (metricsUrlFilter.some(filterUrl => url.includes(filterUrl)) &&
-          metricsUrlExcludes.every(exclude => !url.includes(exclude))) ||
-        url === this.o.url
-      ) {
-        logger('request_failed:', url);
-        this.networkLogs.push({
-          ts: Date.now(),
-          network: 'request_failed',
-          type: '',
-          url: response.url()
-        });
+      try {
+        const u = new URL(response.url());
+        const href = u.href;
+        const hostAndPathname = u.host + u.pathname;
+        if (
+          (metricsUrlFilter.some(filterUrl => href.includes(filterUrl)) &&
+            metricsUrlExcludes.every(exclude => !hostAndPathname.includes(exclude))) ||
+          href === this.o.url
+        ) {
+          logger('request_failed:', href);
+          this.networkLogs.push({
+            ts: Date.now(),
+            network: 'request_failed',
+            type: '',
+            url: href
+          });
+        }
+      } catch (e) {
+        console.error(e);
       }
       awaiter$.next(null);
     });
