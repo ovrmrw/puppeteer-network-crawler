@@ -265,6 +265,7 @@ export class NetworkCrawler {
           if (log.url === this.networkLogs[j].url && this.networkLogs[j].network === 'request') {
             log.diffFromRequest = log.ts - this.networkLogs[j].ts;
             log.type = this.networkLogs[j].type;
+            continue;
           }
         }
       }
